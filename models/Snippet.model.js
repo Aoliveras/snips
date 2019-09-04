@@ -1,4 +1,5 @@
 const shortid = require('shortid');
+const db = require('../db');
 const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
 const ErrorWithHttpStatus = require('../utils/ErrorWithHttpStatus');
 
@@ -15,6 +16,7 @@ const ErrorWithHttpStatus = require('../utils/ErrorWithHttpStatus');
  * @property {number} favorites
  */
 
+//  TODO: Do theese vunnn!!!
 /**
  * Inserts a new snippet into the db.
  * @param {Snippet} newSnippet - the data to create the snippet with
@@ -24,7 +26,11 @@ exports.insert = async ({ author, code, title, description, language }) => {
   try {
     if (!author || !code || !title || !description || !language)
       throw new ErrorWithHttpStatus('Missing properties', 400);
-
+    return db.query(
+      `INSERT INTO snippet (code, title, description, author, language) VALUES ($1, $2, $3, $4, $5)`,
+      [code, title, description, author, language]
+    );
+    /*
     // read snippets.json
     const snippets = await readJsonFromDb('snippets');
     // grab data from newSnippet (validate)
@@ -44,6 +50,7 @@ exports.insert = async ({ author, code, title, description, language }) => {
     // write back to the file
     await writeJsonToDb('snippets', snippets);
     return snippets[snippets.length - 1];
+    */
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error');
@@ -54,11 +61,14 @@ exports.insert = async ({ author, code, title, description, language }) => {
  * Selects snippets from DB.
  * Can accept optional query object to filter results;
  * otherwise, returns all snippets.
- * @param {Object} [query]
+ * @param {Object} [queryObj]
  * @returns {Promise<Snippet[]>} array of Snippet objects
  */
-exports.select = async (query = {}) => {
+exports.select = async (queryObj = {}) => {
   try {
+    const result = await db.query('SELECT * FROM snippet WHERE ');
+    return result.rows;
+    /*
     // 1. read the file
     // 2. parse it
     const snippets = await readJsonFromDb('snippets');
@@ -70,18 +80,27 @@ exports.select = async (query = {}) => {
     );
     // 3. return the data
     return filtered;
+    */
   } catch (err) {
     throw new ErrorWithHttpStatus('Database error');
   }
 };
 
+// TODO: do theese vunn
 /**
  * Updates a snippet
  * @param {string} id - id of the snippet to update
  * @param {Snippet} newData - subset of values to update
  */
-exports.update = async (id, newData) => {
+exports.update = async (id, { author, code, title, description, language }) => {
   try {
+    const result = db.query(
+      `UPDATE snippet SET author = $1, code = $2, title = $3, description = $4, language = $5   WHERE id = $6`,
+      [author, code, title, description, language, id]
+    );
+
+    // Old Code
+    /*
     // 1. read file
     const snippets = await readJsonFromDb('snippets');
     // 2. find the snippet with id
@@ -107,6 +126,7 @@ exports.update = async (id, newData) => {
 
     // 4. write back to db
     return writeJsonToDb('snippets', updatedSnippets);
+    */
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error', 500);
@@ -119,15 +139,24 @@ exports.update = async (id, newData) => {
  */
 exports.delete = async id => {
   try {
+    const result = await db.query(`DELETE FROM snippet WHERE id = $1`, [id]);
+    // Check if some number of rows was deleted
+    if (result.rowCount === 0)
+      throw new ErrorWithHttpStatus(`Snippet with ID ${id} not found`, 404); // short circuit if id not found
+
+    // Old code
+    /*
     // Read in the db file
     const snippets = await readJsonFromDb('snippets');
     // filter snippets for everything except snippet.id
-    const filteredSnips = snippets.filter(snippet => snippet.id !== id);
+    const filteredSnips = result.filter(snippet => snippet.id !== id);
+    // const filteredSnips = snippets.filter(snippet => snippet.id !== id);
     if (filteredSnips.length === snippets.length)
       throw new ErrorWithHttpStatus(`Snippet with ID ${id} not found`, 404); // short circuit if id not found
 
     // write the file
     return writeJsonToDb('snippets', filteredSnips);
+    */
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error', 500);
