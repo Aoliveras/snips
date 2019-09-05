@@ -66,7 +66,7 @@ exports.insert = async ({ author, code, title, description, language }) => {
  */
 exports.select = async (queryObj = {}) => {
   try {
-    const result = await db.query('SELECT * FROM snippet WHERE ');
+    const result = await db.query('SELECT * FROM snippet');
     return result.rows;
     /*
     // 1. read the file
@@ -94,7 +94,15 @@ exports.select = async (queryObj = {}) => {
  */
 exports.update = async (id, { author, code, title, description, language }) => {
   try {
-    const result = db.query(
+    if (
+      author === '' ||
+      code === '' ||
+      title === '' ||
+      description === '' ||
+      language === ''
+    )
+      throw new ErrorWithHttpStatus('Missing properties', 400);
+    return db.query(
       `UPDATE snippet SET author = $1, code = $2, title = $3, description = $4, language = $5   WHERE id = $6`,
       [author, code, title, description, language, id]
     );
