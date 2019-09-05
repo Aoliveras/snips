@@ -7,6 +7,7 @@ CREATE TABLE snippet
   description TEXT,
   favorites INT DEFAULT 0,
   author TEXT,
+  language TEXT
 );
 
 --Seed snippets with data
