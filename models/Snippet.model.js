@@ -1,6 +1,7 @@
 const shortid = require('shortid');
+const format = require('pg-format');
 const db = require('../db');
-const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
+// const { readJsonFromDb, writeJsonToDb } = require('../utils/db.utils');
 const ErrorWithHttpStatus = require('../utils/ErrorWithHttpStatus');
 
 /**
@@ -26,10 +27,11 @@ exports.insert = async ({ author, code, title, description, language }) => {
   try {
     if (!author || !code || !title || !description || !language)
       throw new ErrorWithHttpStatus('Missing properties', 400);
-    return db.query(
-      `INSERT INTO snippet (code, title, description, author, language) VALUES ($1, $2, $3, $4, $5)`,
+    const result = await db.query(
+      `INSERT INTO snippet (code, title, description, author, language) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [code, title, description, author, language]
     );
+    return result.rows[0];
     /*
     // read snippets.json
     const snippets = await readJsonFromDb('snippets');
@@ -64,10 +66,25 @@ exports.insert = async ({ author, code, title, description, language }) => {
  * @param {Object} [queryObj]
  * @returns {Promise<Snippet[]>} array of Snippet objects
  */
-exports.select = async (queryObj = {}) => {
+exports.select = async query => {
   try {
-    const result = await db.query('SELECT * FROM snippet');
-    return result.rows;
+    // New code with query using pg-format
+    const clauses = Object.keys(query)
+      .map((key, i) => `%I = $${i + 1}`)
+      .join(' AND ');
+    const formattedSelect = format(
+      `SELECT * FROM snippet ${clauses.length ? `WHERE ${clauses}` : ''}`,
+      ...Object.keys(query)
+    );
+    // console.log(formattedSelect);
+
+    const results = await db.query(formattedSelect, Object.values(query));
+    return results.rows;
+
+    // Without Query new code
+    // console.log(query);
+    // const result = await db.query('SELECT * FROM snippet');
+    // return result.rows;
     /*
     // 1. read the file
     // 2. parse it
@@ -92,54 +109,73 @@ exports.select = async (queryObj = {}) => {
  * @param {string} id - id of the snippet to update
  * @param {Snippet} newData - subset of values to update
  */
-exports.update = async (id, { author, code, title, description, language }) => {
+exports.update = async (id, newData) => {
   try {
-    if (
-      author === '' ||
-      code === '' ||
-      title === '' ||
-      description === '' ||
-      language === ''
-    )
-      throw new ErrorWithHttpStatus('Missing properties', 400);
-    return db.query(
-      `UPDATE snippet SET author = $1, code = $2, title = $3, description = $4, language = $5   WHERE id = $6`,
-      [author, code, title, description, language, id]
+    const { author, code, title, description, language } = newData;
+    await db.query(
+      `UPDATE snippet 
+    SET 
+      author = COALESCE($2, author),
+      code = COALESCE($3, code),
+      title = COALESCE($4, title),
+      description = COALESCE($5, description),
+      language=COALESCE($6, language)
+    WHERE id = ($1)`,
+      [id, author, code, title, description, language]
     );
-
-    // Old Code
-    /*
-    // 1. read file
-    const snippets = await readJsonFromDb('snippets');
-    // 2. find the snippet with id
-    let found = false;
-    // 3. update the snippet with appropriate data (make sure to validate!)
-    const updatedSnippets = snippets.map(snippet => {
-      // if it's not the one we want, just return it
-      if (snippet.id !== id) return snippet;
-
-      // else we found what we're looking for
-      found = true;
-      // loop over keys in newData
-      Object.keys(newData).forEach(key => {
-        // check if snippet has that key and set it
-        if (key in snippet) snippet[key] = newData[key];
-        else throw new ErrorWithHttpStatus(`Invalid property ${key}`, 400);
-      });
-      return snippet;
-    });
-
-    if (!found)
-      throw new ErrorWithHttpStatus(`Snippet with ID ${id} not found`, 404);
-
-    // 4. write back to db
-    return writeJsonToDb('snippets', updatedSnippets);
-    */
   } catch (err) {
     if (err instanceof ErrorWithHttpStatus) throw err;
     else throw new ErrorWithHttpStatus('Database error', 500);
   }
 };
+// exports.update = async (id, { author, code, title, description, language }) => {
+//   try {
+//     if (
+//       author === '' ||
+//       code === '' ||
+//       title === '' ||
+//       description === '' ||
+//       language === ''
+//     )
+//       throw new ErrorWithHttpStatus('Missing properties', 400);
+//     return (await db.query(
+//       `UPDATE snippet SET author = $1, code = $2, title = $3, description = $4, language = $5   WHERE id = $6 RETURNING *`,
+//       [author, code, title, description, language, id]
+//     )).rows[0];
+
+//     // Old Code
+//     /*
+//     // 1. read file
+//     const snippets = await readJsonFromDb('snippets');
+//     // 2. find the snippet with id
+//     let found = false;
+//     // 3. update the snippet with appropriate data (make sure to validate!)
+//     const updatedSnippets = snippets.map(snippet => {
+//       // if it's not the one we want, just return it
+//       if (snippet.id !== id) return snippet;
+
+//       // else we found what we're looking for
+//       found = true;
+//       // loop over keys in newData
+//       Object.keys(newData).forEach(key => {
+//         // check if snippet has that key and set it
+//         if (key in snippet) snippet[key] = newData[key];
+//         else throw new ErrorWithHttpStatus(`Invalid property ${key}`, 400);
+//       });
+//       return snippet;
+//     });
+
+//     if (!found)
+//       throw new ErrorWithHttpStatus(`Snippet with ID ${id} not found`, 404);
+
+//     // 4. write back to db
+//     return writeJsonToDb('snippets', updatedSnippets);
+//     */
+//   } catch (err) {
+//     if (err instanceof ErrorWithHttpStatus) throw err;
+//     else throw new ErrorWithHttpStatus('Database error', 500);
+//   }
+// };
 
 /**
  * Deletes a snippet

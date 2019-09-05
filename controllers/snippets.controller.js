@@ -13,6 +13,7 @@ exports.createSnippet = async (request, response, next) => {
 
 exports.getAllSnippets = async ({ query }, response, next) => {
   try {
+    console.log(query);
     // 1. get data from Snippets model
     const snippets = await Snippet.select(query);
     // 2. send that out
