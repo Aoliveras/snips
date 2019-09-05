@@ -2,12 +2,8 @@ require('dotenv').config();
 
 const pg = require('pg');
 
-const { DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_DATABASE } = process.env;
-
-// how to reach database
-const connectionString = `postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}`;
 // open multiple connection pool
-const pool = new pg.Pool({ connectionString });
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 // opens a single connection to db
 // pool.connect();
 
